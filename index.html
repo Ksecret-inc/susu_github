@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>2026 매출 대시보드</title>
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7; --surface: #fcfcfb;
+  --ink: #0b0b0b; --ink2: #52514e; --muted: #898781;
+  --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,.10);
+  --wash: rgba(11,11,11,.05);
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #008300;
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19;
+    --ink: #f0efec; --ink2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,.10);
+    --wash: rgba(255,255,255,.07);
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #0ca30c;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19;
+  --ink: #f0efec; --ink2: #c3c2b7; --muted: #898781;
+  --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,.10);
+  --wash: rgba(255,255,255,.07);
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #0ca30c;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--page); color: var(--ink);
+  font: 14px/1.5 system-ui, -apple-system, "Segoe UI", "Malgun Gothic", sans-serif;
+}
+.wrap { max-width: 1120px; margin: 0 auto; padding: 24px 16px 48px; }
+h1 { font-size: 20px; margin: 0 0 2px; font-weight: 600; }
+.sub { color: var(--ink2); margin: 0 0 16px; font-size: 13px; }
+
+/* filter row */
+.filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 16px; min-height: 36px; }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--surface); }
+.seg button { border: 0; background: transparent; color: var(--ink2); padding: 6px 12px; font: inherit; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
+.seg button:not([aria-pressed="true"]):hover { background: var(--wash); }
+.sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
+.hint { color: var(--muted); font-size: 13px; }
+.pill { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); background: var(--surface);
+  border-radius: 999px; padding: 4px 6px 4px 12px; font: inherit; color: var(--ink); cursor: pointer; }
+.pill:hover { background: var(--wash); }
+.pill .x { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; background: var(--wash); color: var(--ink2); font-size: 12px; line-height: 1; }
+.reset { border: 0; background: transparent; color: var(--ink2); text-decoration: underline; cursor: pointer; font: inherit; padding: 4px 6px; }
+
+button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--s1); outline-offset: 2px; border-radius: 4px; }
+
+/* cards */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; min-width: 0; }
+.card h2 { font-size: 14px; font-weight: 600; margin: 0; }
+.card .note { color: var(--muted); font-size: 12px; margin: 2px 0 12px; }
+.grid { display: grid; gap: 16px; margin-bottom: 16px; }
+.kpis { grid-template-columns: 1fr; }
+.kpis .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.hero .label, .tile .label { color: var(--ink2); font-size: 13px; }
+.hero .value { font-size: 56px; line-height: 1.1; font-weight: 600; margin: 4px 0 2px; letter-spacing: -0.02em; }
+.hero .full { color: var(--muted); font-size: 12px; }
+.tile .value { font-size: 24px; font-weight: 600; margin-top: 2px; }
+.tile .d { color: var(--muted); font-size: 12px; }
+.two { grid-template-columns: 1fr; }
+@media (min-width: 760px) {
+  .kpis { grid-template-columns: 1.2fr 2fr; }
+  .two { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 520px) {
+  .hero .value { font-size: 44px; }
+  .kpis .tiles { grid-template-columns: 1fr; }
+}
+
+/* month chart */
+#month { width: 100%; }
+#month svg { display: block; width: 100%; height: auto; overflow: visible; }
+#month .hit { fill: transparent; cursor: pointer; }
+#month .bar { transition: opacity .15s, filter .15s; }
+#month .col:hover .bar, #month .col:focus .bar { filter: brightness(1.12); }
+#month .gridline { stroke: var(--grid); stroke-width: 1; }
+#month .base { stroke: var(--axis); stroke-width: 1; }
+#month text { fill: var(--muted); font-size: 11px; }
+#month text.val { fill: var(--ink); font-weight: 600; }
+#month text.sel { fill: var(--ink); font-weight: 600; }
+
+/* bar lists */
+.list { display: flex; flex-direction: column; gap: 4px; }
+.row { display: grid; grid-template-columns: minmax(96px, 150px) 1fr 76px; align-items: center; gap: 10px;
+  border: 0; background: transparent; padding: 6px 8px; margin: 0 -8px; border-radius: 8px; font: inherit; color: var(--ink);
+  cursor: pointer; text-align: left; width: calc(100% + 16px); }
+.row:hover { background: var(--wash); }
+.row .rl { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.row .rl span.t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.rtrack { height: 20px; display: flex; align-items: center; }
+.rbar { height: 16px; border-radius: 0 4px 4px 0; transition: width .25s, opacity .15s; min-width: 2px; }
+.row .rv { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink); font-weight: 600; }
+.row .rv small { display: block; color: var(--muted); font-weight: 400; font-size: 11px; }
+.row[data-dim="1"] { opacity: .35; }
+.row[data-dim="1"]:hover { opacity: .7; }
+
+/* table */
+.tablewrap { max-height: 380px; overflow: auto; border: 1px solid var(--border); border-radius: 8px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { padding: 8px 12px; text-align: left; white-space: nowrap; }
+th { position: sticky; top: 0; background: var(--surface); color: var(--ink2); font-weight: 500; border-bottom: 1px solid var(--axis); }
+td { border-bottom: 1px solid var(--grid); }
+td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+tbody tr:hover td { background: var(--wash); }
+td .dot { display: inline-block; margin-right: 8px; }
+tfoot td { font-weight: 600; border-top: 1px solid var(--axis); position: sticky; bottom: 0; background: var(--surface); }
+
+/* tooltip */
+#tip { position: fixed; z-index: 10; pointer-events: none; background: var(--surface); color: var(--ink);
+  border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; box-shadow: 0 4px 16px rgba(0,0,0,.18);
+  font-size: 12px; min-width: 150px; opacity: 0; transition: opacity .08s; }
+#tip.on { opacity: 1; }
+#tip .tt { color: var(--ink2); margin-bottom: 2px; }
+#tip .tv { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+#tip .tr { display: flex; justify-content: space-between; gap: 16px; color: var(--ink2); }
+#tip .tr b { color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; }
+.foot { color: var(--muted); font-size: 12px; margin-top: 8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>2026 매출 대시보드</h1>
+  <p class="sub">[교육용 더미] 매출 데이터 2026 · 월·제품·채널 막대를 클릭하면 전체가 해당 조건으로 필터링됩니다.</p>
+
+  <div class="filters" id="filters"></div>
+
+  <div class="grid kpis">
+    <div class="card hero">
+      <div class="label" id="heroLabel">총 매출</div>
+      <div class="value" id="heroValue"></div>
+      <div class="full" id="heroFull"></div>
+    </div>
+    <div class="tiles">
+      <div class="card tile"><div class="label">판매수량</div><div class="value" id="kQty"></div><div class="d" id="kQtyD"></div></div>
+      <div class="card tile"><div class="label">평균 할인율</div><div class="value" id="kDisc"></div><div class="d">정가 대비 실매출 기준</div></div>
+      <div class="card tile"><div class="label">전체 대비 비중</div><div class="value" id="kShare"></div><div class="d">전체 매출 대비</div></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
+    <h2 id="monthTitle">월별 매출</h2>
+    <p class="note">제품·채널 필터를 반영합니다. 막대를 클릭하면 해당 월만 봅니다.</p>
+    <div id="month"></div>
+  </div>
+
+  <div class="grid two">
+    <div class="card">
+      <h2 id="prodTitle">제품별 매출</h2>
+      <p class="note">월·채널 필터를 반영합니다.</p>
+      <div class="list" id="prodList"></div>
+    </div>
+    <div class="card">
+      <h2 id="chanTitle">채널별 매출</h2>
+      <p class="note">월·제품 필터를 반영합니다.</p>
+      <div class="list" id="chanList"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 id="tableTitle">상세 내역</h2>
+    <p class="note">현재 필터가 적용된 원본 행입니다.</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>월</th><th>제품</th><th>채널</th><th class="n">판매수량</th><th class="n">정가(원)</th><th class="n">할인율</th><th class="n">매출(원)</th></tr></thead>
+        <tbody id="tbody"></tbody>
+        <tfoot><tr><td colspan="3">합계</td><td class="n" id="fQty"></td><td></td><td class="n" id="fDisc"></td><td class="n" id="fRev"></td></tr></tfoot>
+      </table>
+    </div>
+  </div>
+</div>
+<div id="tip" role="tooltip"></div>
+
+<script>
+/* ---------- 데이터 (구글 시트 '[교육용 더미] 매출 데이터 2026' 기준) ----------
+   행 형식: 월|제품번호|올리브영,자사몰,쿠팡,아마존(해외) 각 "판매수량/할인율%"
+   매출 = 판매수량 × 정가 × (1 − 할인율/100)  (시트 값과 동일) */
+const PRODUCTS = [
+  { n: '데일리 선크림',        p: 19000, c: 'var(--s2)' },
+  { n: '진정 시카 앰플',       p: 24000, c: 'var(--s3)' },
+  { n: '수분 장벽 크림',       p: 28000, c: 'var(--s4)' },
+  { n: '에센셜 마스크팩(10매)', p: 15000, c: 'var(--s5)' },
+  { n: '약산성 클렌징폼',      p: 12000, c: 'var(--s6)' },
+];
+const CHANNELS = ['올리브영', '자사몰', '쿠팡', '아마존(해외)'];
+const RAW = `
+2026-01|0|439/20,209/10,330/20,237/0
+2026-01|1|600/0,300/10,487/0,404/5
+2026-01|2|587/0,323/0,502/0,351/15
+2026-01|3|795/5,324/5,521/20,422/5
+2026-01|4|746/0,369/10,497/10,371/0
+2026-02|0|566/10,242/10,365/0,305/0
+2026-02|1|595/0,318/0,456/15,388/0
+2026-02|2|650/0,267/10,426/20,439/10
+2026-02|3|921/20,394/5,627/10,537/0
+2026-02|4|715/20,371/0,528/10,481/0
+2026-03|0|741/0,405/10,496/15,578/10
+2026-03|1|664/20,292/5,373/0,342/5
+2026-03|2|506/5,246/0,314/20,303/15
+2026-03|3|844/15,391/0,546/0,595/20
+2026-03|4|733/5,308/10,425/20,389/0
+2026-04|0|968/20,554/0,710/5,835/20
+2026-04|1|680/10,261/5,503/5,396/5
+2026-04|2|406/0,204/10,260/0,235/0
+2026-04|3|737/10,415/0,591/0,489/15
+2026-04|4|691/20,347/0,513/20,466/15
+2026-05|0|1416/15,590/10,958/5,1103/5
+2026-05|1|662/20,308/5,422/20,434/10
+2026-05|2|328/10,121/5,221/0,247/5
+2026-05|3|751/20,396/0,594/20,552/0
+2026-05|4|747/10,348/10,480/10,587/10
+2026-06|0|1812/20,647/5,1025/5,1108/5
+2026-06|1|520/20,281/5,386/20,473/15
+2026-06|2|307/5,117/10,170/10,189/5
+2026-06|3|905/5,329/10,642/0,595/15
+2026-06|4|718/0,279/10,520/15,584/10
+2026-07|0|1657/15,874/10,1148/10,1216/15
+2026-07|1|623/0,323/0,395/20,546/10
+2026-07|2|310/15,139/5,200/0,191/0
+2026-07|3|878/10,391/5,634/0,623/20
+2026-07|4|668/15,353/0,501/15,627/15
+2026-08|0|1506/15,771/10,1230/10,1333/0
+2026-08|1|670/15,296/5,505/15,486/20
+2026-08|2|309/0,135/10,210/0,222/10
+2026-08|3|964/15,455/5,651/10,734/0
+2026-08|4|829/0,314/0,505/20,608/0
+2026-09|0|1133/0,424/0,672/10,791/0
+2026-09|1|637/15,235/0,466/20,451/0
+2026-09|2|425/10,200/5,345/0,369/0
+2026-09|3|888/10,307/5,638/0,768/0
+2026-09|4|739/10,354/10,537/10,616/0
+2026-10|0|773/5,317/5,541/0,668/10
+2026-10|1|573/0,321/5,376/0,536/0
+2026-10|2|655/0,277/10,432/10,436/15
+2026-10|3|776/10,376/5,528/20,675/0
+2026-10|4|772/20,340/10,530/10,558/15
+`;
+
+const rows = [];
+RAW.trim().split('\n').forEach(line => {
+  const [m, pi, cells] = line.split('|');
+  cells.split(',').forEach((cell, ci) => {
+    const [q, d] = cell.split('/').map(Number);
+    const p = PRODUCTS[+pi].p;
+    rows.push({ m, pi: +pi, ci, q, d, p, list: q * p, rev: Math.round(q * p * (1 - d / 100)) });
+  });
+});
+const MONTHS = [...new Set(rows.map(r => r.m))];
+const TOTAL_REV = rows.reduce((a, r) => a + r.rev, 0);
+
+/* ---------- 상태 ---------- */
+const state = { m: null, p: null, c: null, metric: 'rev' };
+const $ = s => document.querySelector(s);
+const mLabel = m => Number(m.slice(5)) + '월';
+const fmtInt = n => Math.round(n).toLocaleString('ko-KR');
+const trim = x => String(+x.toFixed(2));
+const fmtWon = n => n >= 1e8 ? trim(n / 1e8) + '억원' : n >= 1e4 ? fmtInt(n / 1e4) + '만원' : fmtInt(n) + '원';
+const fmtVal = v => state.metric === 'rev' ? fmtWon(v) : fmtInt(v) + '개';
+const getVal = r => state.metric === 'rev' ? r.rev : r.q;
+const metricName = () => state.metric === 'rev' ? '매출' : '판매수량';
+const axisFmt = v => state.metric === 'rev'
+  ? (v === 0 ? '0' : v >= 1e8 ? trim(v / 1e8) + '억' : trim(v / 1e4) + '만')
+  : fmtInt(v);
+
+function sub(except) {
+  return rows.filter(r =>
+    (except === 'm' || state.m === null || r.m === state.m) &&
+    (except === 'p' || state.p === null || r.pi === state.p) &&
+    (except === 'c' || state.c === null || r.ci === state.c));
+}
+function stats(rs) {
+  const rev = rs.reduce((a, r) => a + r.rev, 0);
+  const q = rs.reduce((a, r) => a + r.q, 0);
+  const list = rs.reduce((a, r) => a + r.list, 0);
+  return { rev, q, disc: list ? (1 - rev / list) * 100 : 0, n: rs.length };
+}
+function toggle(dim, v) { state[dim] = state[dim] === v ? null : v; render(); }
+
+/* ---------- 툴팁 ---------- */
+const tip = $('#tip');
+function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+function showTip(x, y, title, rs, shareBase) {
+  const s = stats(rs);
+  tip.replaceChildren();
+  tip.append(el('div', 'tt', title), el('div', 'tv', fmtWon(s.rev)));
+  const add = (k, v) => { const r = el('div', 'tr'); r.append(el('span', null, k), el('b', null, v)); tip.append(r); };
+  add('판매수량', fmtInt(s.q) + '개');
+  add('평균 할인율', s.disc.toFixed(1) + '%');
+  if (shareBase) add('비중', (shareBase ? s.rev / shareBase * 100 : 0).toFixed(1) + '%');
+  tip.classList.add('on');
+  const w = tip.offsetWidth, h = tip.offsetHeight;
+  tip.style.left = Math.max(8, Math.min(x + 14, innerWidth - w - 8)) + 'px';
+  tip.style.top = Math.max(8, Math.min(y + 14, innerHeight - h - 8)) + 'px';
+}
+const hideTip = () => tip.classList.remove('on');
+function focusTip(node, title, rs, base) {
+  const b = node.getBoundingClientRect();
+  showTip(b.left + b.width / 2, b.top, title, rs, base);
+}
+
+/* ---------- 필터 바 ---------- */
+function renderFilters() {
+  const f = $('#filters'); f.replaceChildren();
+  const seg = el('div', 'seg'); seg.setAttribute('role', 'group'); seg.setAttribute('aria-label', '지표');
+  [['rev', '매출'], ['q', '판매수량']].forEach(([k, t]) => {
+    const b = el('button', null, t); b.setAttribute('aria-pressed', String(state.metric === k));
+    b.onclick = () => { state.metric = k; render(); };
+    seg.append(b);
+  });
+  f.append(seg, el('span', 'sep'));
+  const pills = [];
+  if (state.m !== null) pills.push(['m', '월: ' + mLabel(state.m)]);
+  if (state.p !== null) pills.push(['p', '제품: ' + PRODUCTS[state.p].n]);
+  if (state.c !== null) pills.push(['c', '채널: ' + CHANNELS[state.c]]);
+  if (!pills.length) f.append(el('span', 'hint', '아래 차트를 클릭해 필터링하세요'));
+  pills.forEach(([dim, text]) => {
+    const b = el('button', 'pill'); b.title = '필터 해제';
+    b.append(el('span', null, text), el('span', 'x', '✕'));
+    b.onclick = () => toggle(dim, state[dim]);
+    f.append(b);
+  });
+  if (pills.length > 1) {
+    const r = el('button', 'reset', '전체 초기화');
+    r.onclick = () => { state.m = state.p = state.c = null; render(); };
+    f.append(r);
+  }
+}
+
+/* ---------- KPI ---------- */
+function renderKpis() {
+  const rs = sub(null), s = stats(rs);
+  const parts = [];
+  if (state.m !== null) parts.push(mLabel(state.m));
+  if (state.p !== null) parts.push(PRODUCTS[state.p].n);
+  if (state.c !== null) parts.push(CHANNELS[state.c]);
+  $('#heroLabel').textContent = (parts.length ? parts.join(' · ') : '전체') + ' 매출';
+  $('#heroValue').textContent = fmtWon(s.rev);
+  $('#heroFull').textContent = fmtInt(s.rev) + '원';
+  $('#kQty').textContent = fmtInt(s.q) + '개';
+  $('#kQtyD').textContent = s.n + '개 행 합계';
+  $('#kDisc').textContent = s.disc.toFixed(1) + '%';
+  $('#kShare').textContent = (s.rev / TOTAL_REV * 100).toFixed(1) + '%';
+}
+
+/* ---------- 월별 컬럼 차트 (SVG) ---------- */
+function renderMonth() {
+  const host = $('#month');
+  const data = MONTHS.map(m => ({ m, rs: sub('m').filter(r => r.m === m) }))
+    .map(d => ({ ...d, v: d.rs.reduce((a, r) => a + getVal(r), 0) }));
+  const maxV = Math.max(...data.map(d => d.v), 1);
+  const pow = Math.pow(10, Math.floor(Math.log10(maxV)));
+  const fr = maxV / pow;
+  const top = (fr <= 1 ? 1 : fr <= 2 ? 2 : fr <= 5 ? 5 : 10) * pow;
+  const W = Math.max(host.clientWidth, 280), H = 240;
+  const mg = { l: 48, r: 8, t: 18, b: 28 };
+  const iw = W - mg.l - mg.r, ih = H - mg.t - mg.b;
+  const band = iw / data.length, bw = Math.min(24, band * 0.6);
+  const y = v => mg.t + ih - v / top * ih;
+  const maxIdx = data.findIndex(d => d.v === maxV);
+  let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="월별 ${metricName()}">`;
+  for (let i = 0; i <= 4; i++) {
+    const v = top / 4 * i;
+    svg += `<line class="${i === 0 ? 'base' : 'gridline'}" x1="${mg.l}" x2="${W - mg.r}" y1="${y(v)}" y2="${y(v)}"/>`;
+    svg += `<text x="${mg.l - 8}" y="${y(v) + 4}" text-anchor="end">${axisFmt(v)}</text>`;
+  }
+  data.forEach((d, i) => {
+    const cx = mg.l + band * i + band / 2, x = cx - bw / 2, by = y(d.v), h = Math.max(mg.t + ih - by, 0);
+    const dim = state.m !== null && state.m !== d.m;
+    const r = Math.min(4, h / 2, bw / 2);
+    const path = h > 0 ? `M${x},${mg.t + ih} V${by + r} a${r},${r} 0 0 1 ${r},${-r} h${bw - 2 * r} a${r},${r} 0 0 1 ${r},${r} V${mg.t + ih} Z` : '';
+    const labeled = state.m === d.m || (state.m === null && i === maxIdx);
+    svg += `<g class="col" data-m="${d.m}" tabindex="0" role="button" aria-pressed="${state.m === d.m}" aria-label="${mLabel(d.m)} ${metricName()} ${fmtVal(d.v)}">
+      <rect class="hit" x="${cx - band / 2}" y="${mg.t}" width="${band}" height="${ih + mg.b}"/>
+      <path class="bar" d="${path}" style="fill:var(--s1);opacity:${dim ? .3 : 1}"/>
+      ${labeled ? `<text class="val" x="${cx}" y="${by - 6}" text-anchor="middle">${axisFmt(d.v)}</text>` : ''}
+      <text class="${state.m === d.m ? 'sel' : ''}" x="${cx}" y="${H - 8}" text-anchor="middle">${mLabel(d.m)}</text>
+    </g>`;
+  });
+  svg += '</svg>';
+  host.innerHTML = svg;
+  host.querySelectorAll('.col').forEach((g, i) => {
+    const d = data[i];
+    const base = stats(sub('m')).rev;
+    g.addEventListener('click', () => toggle('m', d.m));
+    g.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle('m', d.m); } });
+    g.addEventListener('pointermove', e => showTip(e.clientX, e.clientY, mLabel(d.m), d.rs, base));
+    g.addEventListener('pointerleave', hideTip);
+    g.addEventListener('focus', () => focusTip(g, mLabel(d.m), d.rs, base));
+    g.addEventListener('blur', hideTip);
+  });
+  $('#monthTitle').textContent = '월별 ' + metricName();
+}
+
+/* ---------- 제품/채널 막대 리스트 ---------- */
+function renderList(hostSel, dim, items, titleSel, titleText) {
+  const host = $(hostSel); host.replaceChildren();
+  const maxV = Math.max(...items.map(i => i.v), 1);
+  const total = items.reduce((a, i) => a + i.v, 0) || 1;
+  const revBase = items.reduce((a, i) => a + stats(i.rs).rev, 0);
+  items.forEach(it => {
+    const dimmed = state[dim] !== null && state[dim] !== it.key;
+    const b = el('button', 'row'); b.dataset.dim = dimmed ? '1' : '0';
+    b.setAttribute('aria-pressed', String(state[dim] === it.key));
+    const l = el('span', 'rl'); const dot = el('span', 'dot'); dot.style.background = it.color;
+    l.append(dot, el('span', 't', it.label));
+    const track = el('div', 'rtrack'); const bar = el('div', 'rbar');
+    bar.style.width = (it.v / maxV * 100) + '%'; bar.style.background = it.color;
+    track.append(bar);
+    const v = el('span', 'rv', fmtVal(it.v)); v.append(el('small', null, (it.v / total * 100).toFixed(1) + '%'));
+    b.append(l, track, v);
+    b.onclick = () => toggle(dim, it.key);
+    b.addEventListener('pointermove', e => showTip(e.clientX, e.clientY, it.label, it.rs, revBase));
+    b.addEventListener('pointerleave', hideTip);
+    b.addEventListener('focus', () => focusTip(b, it.label, it.rs, revBase));
+    b.addEventListener('blur', hideTip);
+    host.append(b);
+  });
+  $(titleSel).textContent = titleText + metricName();
+}
+
+/* ---------- 상세 테이블 ---------- */
+function renderTable() {
+  const rs = sub(null).slice().sort((a, b) => a.m.localeCompare(b.m) || b.rev - a.rev);
+  const tb = $('#tbody'); tb.replaceChildren();
+  const frag = document.createDocumentFragment();
+  rs.forEach(r => {
+    const tr = document.createElement('tr');
+    const tdP = el('td'); const dot = el('span', 'dot'); dot.style.background = PRODUCTS[r.pi].c;
+    tdP.append(dot, document.createTextNode(PRODUCTS[r.pi].n));
+    tr.append(el('td', null, r.m), tdP, el('td', null, CHANNELS[r.ci]),
+      el('td', 'n', fmtInt(r.q)), el('td', 'n', fmtInt(r.p)), el('td', 'n', r.d + '%'), el('td', 'n', fmtInt(r.rev)));
+    frag.append(tr);
+  });
+  tb.append(frag);
+  const s = stats(rs);
+  $('#fQty').textContent = fmtInt(s.q);
+  $('#fDisc').textContent = s.disc.toFixed(1) + '%';
+  $('#fRev').textContent = fmtInt(s.rev);
+  $('#tableTitle').textContent = '상세 내역 (' + rs.length + '건)';
+}
+
+function render() {
+  hideTip();
+  renderFilters();
+  renderKpis();
+  renderMonth();
+  renderList('#prodList', 'p',
+    PRODUCTS.map((p, i) => { const rs = sub('p').filter(r => r.pi === i); return { key: i, label: p.n, color: p.c, rs, v: rs.reduce((a, r) => a + getVal(r), 0) }; })
+      .sort((a, b) => b.v - a.v), '#prodTitle', '제품별 ');
+  renderList('#chanList', 'c',
+    CHANNELS.map((c, i) => { const rs = sub('c').filter(r => r.ci === i); return { key: i, label: c, color: 'var(--s1)', rs, v: rs.reduce((a, r) => a + getVal(r), 0) }; })
+      .sort((a, b) => b.v - a.v), '#chanTitle', '채널별 ');
+  renderTable();
+}
+let rt; addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(renderMonth, 100); });
+render();
+</script>
+</body>
+</html>
